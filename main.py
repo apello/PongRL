@@ -1,5 +1,7 @@
 import pygame
 from pygame.locals import *
+import random
+from enum import Enum
 
 """
 Information for training model
@@ -45,7 +47,21 @@ Loss function: loss = (Qnew - Q)^2
 """
 
 
-# Colors
+"""
+    - reset()
+    - Reward 
+    - play(action) -> next_action
+    - game_iteration
+    - is_collision()
+
+"""
+
+class Actions(Enum):
+    STOP = 0
+    UP = 1
+    DOWN = 2
+
+# RBB colors
 BLUE = (0,0,255)
 WHITE = (255,255,255)
 BLACK = (0,0,0)
@@ -76,15 +92,12 @@ class Pong:
         if self.y <= 0 + self.radius:
             self.vel_y *= -1
 
-        # If ball hits left of screen , return to center of screen and go the other way
-        if self.x <= 0 + self.radius:
-            self.x, self.y = self.window_width/2-self.radius, self.window_height/2-self.radius
-            self.vel_x *= -1
-            self.vel_y *= -1
+        # If ball hits left or right of screen, return to middle of screen and go the other way
+        if self.x <= 0 + self.radius or self.x >= self.window_width - self.radius:
+            self.x = self.window_width/2-self.radius
 
-        # If ball hits right of screen , return to center of screen and go the other way
-        if self.x >= self.window_width - self.radius:
-            self.x, self.y = self.window_width/2-self.radius, self.window_height/2-self.radius
+            # Random height value
+            self.y = random.randint(self.radius, self.window_height-self.radius)
             self.vel_x *= -1
             self.vel_y *= -1
 
@@ -95,11 +108,11 @@ class Pong:
     def handle_scoring(self, ai_points, player_points):
          # If ball hits left of screen, increase player's points
         if self.x <= 0 + self.radius:
-            ai_points += 1
+            player_points += 1
 
         # If ball hits right of screen, increase AI's points
         if self.x >= self.window_width - self.radius:
-            player_points += 1
+            ai_points += 1
 
         return [ai_points,player_points]
 
@@ -197,7 +210,10 @@ class Game:
         # Create title of window
         pygame.display.set_caption('Ping Pong Game')
 
-        # Create paddles
+        self.reset()
+
+    def reset(self):
+         # Create paddles
         self.left_paddle = Paddle(self.window, self.width, self.height)
         self.right_paddle = Paddle(self.window, self.width, self.height)
 
@@ -212,14 +228,11 @@ class Game:
         self.ai_points = 0
         self.player_points = 0
         self.total_points = 2
-        self.score = None
-        self.score_rect = None
 
-    # reward, game_over, score
-    def play_step(action):
-        pass
+        # Initialize iteration count
+        self.frame_iteration = 0
 
-    def play(self):
+    def move(self):
         # Refill background to clear previous movement
         self.window.fill(BLACK)
 
@@ -259,49 +272,62 @@ class Game:
         # Update display
         pygame.display.update()            
 
-    def run(self):
-        # Main game loop
-        run = True
-        while run:
-            # Functions for display window, and for pong/paddle movement
-            game.play()           
+    def play_step(self,action):
 
-            # End game
-            if self.ai_points >= self.total_points or self.player_points >= self.total_points:
-                # winner = "AI wins!" if self.ai_points >= self.total_points else "Player wins!"
-                # result = self.font.render(f"Game over! {winner}", True, WHITE, BLACK)
-                # result_rect = result.get_rect()
-                # result_rect.center = (self.width //2, self.height//2)
+        # Initialize value
+        winner = 0
 
-                # self.window.blit(result, result_rect)
+        # Functions for display window, and for pong/paddle movement
+        self.move()           
 
-                run = False
+        # End game
+        game_over = False
+        if self.ai_points >= self.total_points or self.player_points >= self.total_points:
+            # result = self.font.render(f"Game over! {winner}", True, WHITE, BLACK)
+            # result_rect = result.get_rect()
+            # result_rect.center = (self.width //2, self.height//2)
 
-            # Loop through user actions, i.e., user clicks
-            for event in pygame.event.get():
-                # End game when player closes window
-                if event.type == pygame.QUIT:
-                    run = False
-                # If user clicks up or down arrow key, change velocity of paddle
-                elif event.type == pygame.KEYDOWN:
-                    # Up arrow key
-                    if event.key == pygame.K_UP:
-                        self.right_paddle.move_up()
-                    # Down arrow key
-                    elif event.key == pygame.K_DOWN:
-                        self.right_paddle.move_down()
-                    # W key
-                    elif event.key == pygame.K_w:
-                        self.left_paddle.move_up()
-                    # S key
-                    elif event.key == pygame.K_s:
-                        self.left_paddle.move_down()
+            # self.window.blit(result, result_rect)
 
-                # Once user releases key, stop paddles
-                if event.type == pygame.KEYUP:
-                    self.left_paddle.stop()
-                    self.right_paddle.stop()
+            game_over = True
+            winner = 0 if self.ai_points >= self.total_points else 1
+            return [game_over, winner]
+
+        # Loop through user actions, i.e., user clicks
+        for event in pygame.event.get():
+            # End game when player closes window
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+            # If user clicks up or down arrow key, change velocity of paddle
+            elif event.type == pygame.KEYDOWN:
+                # Up arrow key
+                if event.key == pygame.K_UP:
+                    self.right_paddle.move_up()
+                # Down arrow key
+                elif event.key == pygame.K_DOWN:
+                    self.right_paddle.move_down()
+                # W key
+                elif event.key == pygame.K_w:
+                    self.left_paddle.move_up()
+                # S key
+                elif event.key == pygame.K_s:
+                    self.left_paddle.move_down()
+
+            # Once user releases key, stop paddles
+            if event.type == pygame.KEYUP:
+                self.left_paddle.stop()
+                self.right_paddle.stop()
+            
+        return [game_over, winner]
 
 if __name__ == "__main__":
     game = Game()
-    game.run()
+
+    while True:
+        game_over,winner = game.play_step(True)
+        if game_over == True:
+            break
+
+    print(winner)
+    pygame.quit()
