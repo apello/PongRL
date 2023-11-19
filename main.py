@@ -2,6 +2,11 @@ import pygame
 from pygame.locals import *
 import random
 from enum import Enum
+import numpy as np
+
+# Initialize module
+pygame.init()
+font = pygame.font.Font(None, 32)
 
 """
 Information for training model
@@ -15,20 +20,22 @@ Training:
     - model.train()
 
 Rewards:
-    - Win game: +10
-    - Pong collision: +5
-    - Pong hits wall: -5
-    - Lose game: -10
+    - Pass opponent's paddle: +10
+    - Ball passes your paddle: -10
 
-Action:
-    - [1,0,0] -> move up 
-    - [0,1,0] -> move down
-    - [0,0,1] -> paddle stop
+Actions:
+    - UP: [1,0,0]
+    - DOWN: [0,1,0]
+    - STOP: [0,0,1]
 
-State:
- [
-    
- ]
+States (taken from Gymasium Atari Pong):
+    - 0:NOOP
+    - 1:FIRE
+    - 2:RIGHT
+    - 3:LEFT
+    - 4:RIGHTFIRE
+    - 5:LEFTFIRE
+
 
 Bellman Equation: NewQ(s,a) = Q(s,a) + alpha[R(s,a) + gamma(maxQ'(s',a')) - Q(s,a)]
     - NewQ(s,a) -> New Q value for the state and action
@@ -49,17 +56,16 @@ Loss function: loss = (Qnew - Q)^2
 
 """
     - reset()
-    - Reward 
+    - reward 
     - play(action) -> next_action
-    - game_iteration
-    - is_collision()
+    - frame_iteration
 
 """
 
-class Actions(Enum):
-    STOP = 0
-    UP = 1
-    DOWN = 2
+# class Direction(Enum):
+#     STOP = 0
+#     UP = 1
+#     DOWN = 2
 
 # RBB colors
 BLUE = (0,0,255)
@@ -105,16 +111,17 @@ class Pong:
         self.x += self.vel_x
         self.y += self.vel_y
 
-    def handle_scoring(self, ai_points, player_points):
-         # If ball hits left of screen, increase player's points
+    def _is_boundary_collision(self):
         if self.x <= 0 + self.radius:
-            player_points += 1
-
-        # If ball hits right of screen, increase AI's points
+            return True
+        
+        return False
+    
+    def _is_opponent_collision(self):
         if self.x >= self.window_width - self.radius:
-            ai_points += 1
-
-        return [ai_points,player_points]
+            return True
+        
+        return False
 
     # Paddle/ball collisions
     def handle_collisions(
@@ -138,7 +145,6 @@ class Pong:
             if right_paddle_y <= self.y <= right_paddle_y + paddle_height:
                 self.x = right_paddle_x - paddle_width
                 self.vel_x *= -1
-
 
     # Draw ball
     def draw(self):
@@ -198,14 +204,11 @@ class Paddle:
 
 class Game:
     def __init__(self):
-        # Initialize module
-        pygame.init()
 
         # Initial values for display window
         self.width=1000
         self.height=600
         self.window = pygame.display.set_mode((self.width,self.height))
-        self.font = pygame.font.Font(None, 32)
 
         # Create title of window
         pygame.display.set_caption('Ping Pong Game')
@@ -225,29 +228,14 @@ class Game:
         self.pong = Pong(self.window, self.width, self.height)
 
         # Initialize values for score
-        self.ai_points = 0
-        self.player_points = 0
-        self.total_points = 2
+        self.ai_score = 0
+        self.player_score = 0
+        # self.total_points = 0
 
         # Initialize iteration count
         self.frame_iteration = 0
 
-    def move(self):
-        # Refill background to clear previous movement
-        self.window.fill(BLACK)
-
-        # Draw pong and paddles
-        self.pong.draw()
-        self.left_paddle.draw()
-        self.right_paddle.draw()
-
-        # Functions for pong movement and collisions with paddles
-        # 120, 20 represent height and width of paddles respectively
-        self.pong.move()
-
-        # Update score
-        self.ai_points,self.player_points = self.pong.handle_scoring(self.ai_points,self.player_points)
-        
+    def _move(self,action):
         # Grab location information from paddles
         left_paddle_x,left_paddle_y = self.left_paddle.get_information()
         right_paddle_x,right_paddle_y = self.right_paddle.get_information()
@@ -265,33 +253,41 @@ class Game:
         self.left_paddle.move()
         self.right_paddle.move()
 
+        # Functions for pong movement and collisions with paddles
+        # 120, 20 represent height and width of paddles respectively
+        self.pong.move()
+
+        # [UP, DOWN, STOP]
+        if np.array_equal(action, [1,0,0]):
+            self.left_paddle.move_up()
+        elif np.array_equal(action, [0,1,0]):
+            self.left_paddle.move_down()
+        else:
+            self.left_paddle.stop()
+
+    def _update_ui(self):
+        # Refill background to clear previous movement
+        self.window.fill(BLACK)
+
+        # Draw pong and paddles
+        self.pong.draw()
+        self.left_paddle.draw()
+        self.right_paddle.draw()
+
         # Display score
-        self.score = self.font.render(f"Score: [{self.ai_points},{self.player_points}]", True, WHITE, BLACK)
+        self.score = font.render(f"Score: [{self.ai_score},{self.player_score}]", True, WHITE, BLACK)
         self.window.blit(self.score, (20,20))
+
+        # Display iteration
+        self.iteration = font.render(f"Iteration: {self.frame_iteration}", True, WHITE, BLACK)
+        self.window.blit(self.iteration, (self.width-200, 20))
 
         # Update display
         pygame.display.update()            
 
     def play_step(self,action):
-
-        # Initialize value
-        winner = 0
-
-        # Functions for display window, and for pong/paddle movement
-        self.move()           
-
-        # End game
-        game_over = False
-        if self.ai_points >= self.total_points or self.player_points >= self.total_points:
-            # result = self.font.render(f"Game over! {winner}", True, WHITE, BLACK)
-            # result_rect = result.get_rect()
-            # result_rect.center = (self.width //2, self.height//2)
-
-            # self.window.blit(result, result_rect)
-
-            game_over = True
-            winner = 0 if self.ai_points >= self.total_points else 1
-            return [game_over, winner]
+        # Increment frame interation
+        self.frame_iteration += 1
 
         # Loop through user actions, i.e., user clicks
         for event in pygame.event.get():
@@ -307,27 +303,41 @@ class Game:
                 # Down arrow key
                 elif event.key == pygame.K_DOWN:
                     self.right_paddle.move_down()
-                # W key
-                elif event.key == pygame.K_w:
-                    self.left_paddle.move_up()
-                # S key
-                elif event.key == pygame.K_s:
-                    self.left_paddle.move_down()
 
             # Once user releases key, stop paddles
             if event.type == pygame.KEYUP:
-                self.left_paddle.stop()
                 self.right_paddle.stop()
+
+
+        # Functions for pong/paddle movement
+        # action = [0,0,1]
+        self._move(action)        
+
+        # Initialize value
+        reward = 0
+        game_over = False
+
+        # Check if game is over
+        if self.pong._is_boundary_collision():
+            self.player_score += 1
+            reward = -10
+            game_over = True
+            return reward, game_over, self.ai_score
+        
+        if self.pong._is_opponent_collision():
+            self.ai_score += 1
+            reward = 10
+
+        self._update_ui()
             
-        return [game_over, winner]
+        return reward, game_over, self.ai_score
 
 if __name__ == "__main__":
     game = Game()
 
     while True:
-        game_over,winner = game.play_step(True)
+        reward,game_over,score = game.play_step(True)
         if game_over == True:
             break
-
-    print(winner)
+    
     pygame.quit()
