@@ -169,7 +169,6 @@ class Paddle:
     # Set a paddle on the left side
     def set_left_paddle(self):
         self.x = 50-self.width/2
-        self.is_left_paddle = True
 
     # set a paddle on the right side
     def set_right_paddle(self):
@@ -332,12 +331,12 @@ class Game:
             
         return reward, game_over, self.ai_score
 
-if __name__ == "__main__":
-    game = Game()
+# if __name__ == "__main__":
+#     game = Game()
 
-    while True:
-        reward,game_over,score = game.play_step(True)
-        if game_over == True:
-            break
+#     while True:
+#         reward,game_over,score = game.play_step(True)
+#         if game_over == True:
+#             break
     
-    pygame.quit()
+#     pygame.quit()

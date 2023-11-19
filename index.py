@@ -22,7 +22,7 @@ title_container = title.get_rect()
 title_container.center = (window_width/2, 30)
 
 # Game information
-TOTAL_POINTS = 1
+TOTAL_POINTS = 10
 ai_points = 0
 player_points = 0
 
