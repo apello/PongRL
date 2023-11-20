@@ -28,13 +28,8 @@ Actions:
     - DOWN: [0,1,0]
     - STOP: [0,0,1]
 
-States (taken from Gymasium Atari Pong):
-    - 0:NOOP
-    - 1:FIRE
-    - 2:RIGHT
-    - 3:LEFT
-    - 4:RIGHTFIRE
-    - 5:LEFTFIRE
+States: 
+    - [pong.y, left_paddle.y, abs(ball.y-left_paddle.y)]
 
 
 Bellman Equation: NewQ(s,a) = Q(s,a) + alpha[R(s,a) + gamma(maxQ'(s',a')) - Q(s,a)]
@@ -85,8 +80,7 @@ class Pong:
         self.y = self.window_height/2-self.radius
 
         # Velocity (x,y) of ball
-        self.vel_x, self.vel_y = 7,7
-       
+        self.vel_x, self.vel_y = 5,5
 
     # Keep ball within window dimensions
     def move(self):
@@ -121,6 +115,13 @@ class Pong:
         if self.x >= self.window_width - self.radius:
             return True
         
+        return False
+    
+    def _is_paddle_colision(self, paddle):
+        if paddle.x <= self.x <= paddle.x + paddle.width:
+            if paddle.y <= self.y <= paddle.y + paddle.height:
+                return True
+            
         return False
 
     # Paddle/ball collisions
@@ -234,7 +235,7 @@ class Game:
         # Initialize iteration count
         self.frame_iteration = 0
 
-    def _move(self,action):
+    def handle_movement(self):
         # Grab location information from paddles
         left_paddle_x,left_paddle_y = self.left_paddle.get_information()
         right_paddle_x,right_paddle_y = self.right_paddle.get_information()
@@ -256,13 +257,14 @@ class Game:
         # 120, 20 represent height and width of paddles respectively
         self.pong.move()
 
-        # [UP, DOWN, STOP]
+    def _move(self, action, paddle):
+          # [UP, DOWN, STOP]
         if np.array_equal(action, [1,0,0]):
-            self.left_paddle.move_up()
+            paddle.move_up()
         elif np.array_equal(action, [0,1,0]):
-            self.left_paddle.move_down()
+            paddle.move_down()
         else:
-            self.left_paddle.stop()
+            paddle.stop()
 
     def _update_ui(self):
         # Refill background to clear previous movement
@@ -294,7 +296,8 @@ class Game:
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-            # If user clicks up or down arrow key, change velocity of paddle
+
+                 # If user clicks up or down arrow key, change velocity of paddle
             elif event.type == pygame.KEYDOWN:
                 # Up arrow key
                 if event.key == pygame.K_UP:
@@ -302,15 +305,18 @@ class Game:
                 # Down arrow key
                 elif event.key == pygame.K_DOWN:
                     self.right_paddle.move_down()
-
+            
             # Once user releases key, stop paddles
             if event.type == pygame.KEYUP:
                 self.right_paddle.stop()
 
 
         # Functions for pong/paddle movement
-        # action = [0,0,1]
-        self._move(action)        
+        self.handle_movement()        
+
+        # Move paddles without input
+        self._move(action, self.left_paddle)
+        # self._move(action, self.right_paddle)
 
         # Initialize value
         reward = 0
@@ -326,6 +332,9 @@ class Game:
         if self.pong._is_opponent_collision():
             self.ai_score += 1
             reward = 10
+
+        if self.pong._is_paddle_colision(self.left_paddle):
+            reward = 5
 
         self._update_ui()
             

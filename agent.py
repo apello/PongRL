@@ -2,6 +2,8 @@ import torch
 import random
 import numpy as np
 from collections import deque
+from model import Linear_QNet, QTrainer
+from plot import plot
 from game import Game
 
 # Maximum memory size
@@ -21,21 +23,58 @@ class Agent:
         self.memory = deque(maxlen=MAX_MEMORY)
 
         # TODO: model, trainer
+        self.model = Linear_QNet(3,256,3)
+        self.trainer = QTrainer(self.model, lr=LEARNING_RATE, gamma=self.gamma)
 
     def get_state(self,game):
-        pass
+        state = [
+            game.left_paddle.y,
+            game.pong.y,
+            abs(game.pong.y-game.left_paddle.y),
+        ]
+
+        return np.array(state, dtype=int)
 
     def remember(self, state, action, reward, next_state, done):
-        pass
+        self.memory.append((state, action, reward, next_state, done)) # popleft
 
     def train_long_memory(self):
-        pass
+        if len(self.memory) > BATCH_SIZE:
+            mini_sample = random.sample(self.memory, BATCH_SIZE) # list of tuples
+        else:
+            mini_sample = self.memory
+
+        states, actions, rewards, next_states, dones = zip(*mini_sample)
+        self.trainer.train_step(states, actions, rewards, next_states, dones)
+
+        # for state, action, reward, next_state, done in mini_sample:
+        #     self.trainer.train_step(state, action, reward, next_state, done)
 
     def train_short_memory(self, state, action, reward, next_state, done):
-        pass
+        self.trainer.train_step(state, action, reward, next_state, done)
+        
 
+    # Random moves: tradeoff exploration / exploitation
     def get_action(self, state):
-        pass
+
+        # Epsilon shrinks as number of games grow
+        self.epsilon = 80 - self.n_games
+        final_move = [0,0,0]
+
+        # Random option
+        if random.randint(0,200) < self.epsilon:
+            # Random select move: [up, down, stop]
+            move = random.randint(0,2)
+            final_move[move] = 1
+
+        # Predict movement
+        else:
+            state0 = torch.tensor(state, dtype=torch.float) # Tensor e.g., [5.0, 2.4, 2.4]
+            prediction = self.model(state0)
+            move = torch.argmax(prediction).item()
+            final_move[move] = 1
+
+        return final_move
 
 def train():
     plot_scores = []
@@ -71,12 +110,16 @@ def train():
 
             if score > record:
                 record = score
-
-                # agent.model.save()
+                agent.model.save()
 
             print('Game: ', agent.n_games, 'Score: ', score, 'Record: ', record)
 
             # TODO: plot
+            plot_scores.append(score)
+            total_score += score
+            mean_score = total_score / agent.n_games
+            plot_mean_scores.append(mean_score)
+            plot(plot_scores, plot_mean_scores)
 
 
 if __name__ == "__main__":
