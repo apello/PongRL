@@ -48,13 +48,11 @@ Loss function: loss = (Qnew - Q)^2
 
 """
 
-
 """
     - reset()
     - reward 
     - play(action) -> next_action
     - frame_iteration
-
 """
 
 # class Direction(Enum):
@@ -80,7 +78,9 @@ class Pong:
         self.y = self.window_height/2-self.radius
 
         # Velocity (x,y) of ball
-        self.vel_x, self.vel_y = 5,5
+        self.vel_x, self.vel_y = random.choice([-8,8]),random.choice([-8,8])
+        self.direction = [0,1]
+        self.angle = [0,1,2]
 
     # Keep ball within window dimensions
     def move(self):
@@ -96,8 +96,29 @@ class Pong:
         if self.x <= 0 + self.radius or self.x >= self.window_width - self.radius:
             self.x = self.window_width/2-self.radius
 
-            # Random height value
-            self.y = random.randint(self.radius, self.window_height-self.radius)
+            # Reset ball to random height value
+            # self.y = random.randint(self.radius, self.window_height-self.radius)
+
+            # Randomly change the angle of ball
+            random_direction = random.choice(self.direction)
+            random_angle = random.choice(self.angle)
+
+            if random_direction == 0:
+                if random_angle == 0:
+                    self.vel_x, self.vel_y = -self.vel_x,self.vel_y-1
+                if random_angle == 1:
+                    self.vel_x, self.vel_y = -self.vel_x,self.vel_y
+                if random_angle == 2:
+                    self.vel_x, self.vel_y = -self.vel_x-1,self.vel_y
+
+            if random_direction == 1:
+                if random_angle == 0:
+                    self.vel_x, self.vel_y = self.vel_x,self.vel_y-1
+                if random_angle == 1:
+                    self.vel_x, self.vel_y = self.vel_x,self.vel_y
+                if random_angle == 2:
+                    self.vel_x, self.vel_y = self.vel_x-1,self.vel_y
+
             self.vel_x *= -1
             self.vel_y *= -1
 
@@ -176,10 +197,10 @@ class Paddle:
         self.x = self.window_width - self.width - 50
 
     def move_up(self):
-        self.vel = -5
+        self.vel = -8
 
     def move_down(self):
-        self.vel = 5
+        self.vel = 8
 
     def stop(self):
         self.vel = 0
@@ -280,8 +301,8 @@ class Game:
         self.window.blit(self.score, (20,20))
 
         # Display iteration
-        self.iteration = font.render(f"Iteration: {self.frame_iteration}", True, WHITE, BLACK)
-        self.window.blit(self.iteration, (self.width-200, 20))
+        # self.iteration = font.render(f"Iteration: {self.frame_iteration}", True, WHITE, BLACK)
+        # self.window.blit(self.iteration, (self.width-200, 20))
 
         # Update display
         pygame.display.update()            
@@ -314,7 +335,7 @@ class Game:
         # Functions for pong/paddle movement
         self.handle_movement()        
 
-        # Move paddles without input
+        # Move paddles with prediction model
         self._move(action, self.left_paddle)
         # self._move(action, self.right_paddle)
 
@@ -333,19 +354,19 @@ class Game:
             self.ai_score += 1
             reward = 10
 
-        if self.pong._is_paddle_colision(self.left_paddle):
-            reward = 5
+        # if self.pong._is_paddle_colision(self.left_paddle):
+        #     reward = 5
 
         self._update_ui()
             
         return reward, game_over, self.ai_score
 
-# if __name__ == "__main__":
-#     game = Game()
+if __name__ == "__main__":
+    game = Game()
 
-#     while True:
-#         reward,game_over,score = game.play_step(True)
-#         if game_over == True:
-#             break
+    while True:
+        reward,game_over,score = game.play_step(True)
+        if game_over == True:
+            break
     
-#     pygame.quit()
+    pygame.quit()

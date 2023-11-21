@@ -27,6 +27,7 @@ class Agent:
         self.trainer = QTrainer(self.model, lr=LEARNING_RATE, gamma=self.gamma)
 
     def get_state(self,game):
+        # States being tracked: y-coord of paddle, y-coord of pong, and difference between them
         state = [
             game.left_paddle.y,
             game.pong.y,
@@ -70,9 +71,10 @@ class Agent:
         # Predict movement
         else:
             state0 = torch.tensor(state, dtype=torch.float) # Tensor e.g., [5.0, 2.4, 2.4]
-            prediction = self.model(state0)
-            move = torch.argmax(prediction).item()
-            final_move[move] = 1
+            prediction = self.model(state0) # Pass tensor to Linear_QNet model
+            
+            move = torch.argmax(prediction).item() # Recieve the index of the largest value in the prediction
+            final_move[move] = 1 # Pass index into action
 
         return final_move
 
@@ -108,13 +110,14 @@ def train():
             agent.n_games += 1
             agent.train_long_memory()
 
+            # Save new record
             if score > record:
                 record = score
                 agent.model.save()
 
             print('Game: ', agent.n_games, 'Score: ', score, 'Record: ', record)
 
-            # TODO: plot
+            # Plot results of each game iteration
             plot_scores.append(score)
             total_score += score
             mean_score = total_score / agent.n_games
